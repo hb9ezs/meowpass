@@ -1,0 +1,511 @@
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  includes:
+    - std_includes.h
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          id(cat_db_view).publish_state(id(cat_db));
+
+esp32:
+  board: seeed_xiao_esp32c6
+  variant: esp32c6
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESPTOOLPY_FLASHSIZE_4MB: y
+
+# Enable logging
+logger:
+  level: INFO
+  hardware_uart: USB_SERIAL_JTAG
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  power_save_mode: none
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${fallback_ap_ssid}
+    password: ${fallback_ap_password}
+
+captive_portal:
+
+# ==============================================================================
+# ============================= START OF MAIN PART =============================
+# ==============================================================================
+sensor:
+  # WiFi Signal Strength (RSSI) in dBm
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  # Monitor how long the device has been running
+  - platform: uptime
+    name: "Uptime"
+    entity_category: "diagnostic"
+
+  # Internal Temperature of the ESP32 chip
+  - platform: internal_temperature
+    name: "Internal Temperature"
+    entity_category: "diagnostic"
+
+text_sensor:
+  - platform: wl_134
+    name: Transponder Code
+    id: transponder_code
+    reset: false
+    on_value:
+      - script.execute: handle_cat_scan
+      
+  - platform: template
+    name: "Cat Database (readonly)"
+    id: cat_db_view
+    update_interval: 60s
+
+  - platform: template
+    name: "Last Cat Name"
+    id: last_cat_name
+
+  - platform: template
+    name: "Last Entry Time"
+    id: last_entry_time
+    
+  # Useful for seeing the IP address directly in HA
+  - platform: wifi_info
+    ip_address:
+      name: Device IP Address
+
+  # Shows the ESPHome version and compile date
+  - platform: version
+    name: "ESPHome Version"
+    entity_category: "diagnostic"
+
+globals:
+  - id: cat_db
+    type: std::string
+    restore_value: true
+    initial_value: '"{}"'
+    
+time:
+  - platform: homeassistant
+    id: ha_time
+    
+uart:
+  - rx_pin: GPIO0
+    baud_rate: 9600
+    id: myuart0
+    debug:
+
+number:
+  - platform: template
+    name: "Öffnungszeit"
+    id: opening_time
+    optimistic: true
+    restore_value: true
+    entity_category: CONFIG
+    min_value: 2
+    max_value: 60
+    step: 2
+    unit_of_measurement: 's'
+    on_value:
+      then:
+        - logger.log:
+            format: 'Number opening_time set to %.0f by user'
+            args: id(opening_time).state
+            level: INFO
+            
+output: 
+  - platform: gpio
+    id: output1
+    pin: 
+      number: GPIO1
+      inverted: false
+
+  - platform: gpio
+    id: output2
+    pin: 
+      number: GPIO2
+      inverted: false
+
+  - platform: gpio
+    id: output3
+    pin: 
+      number: GPIO21
+      inverted: false
+
+  - platform: gpio
+    id: output4
+    pin: 
+      number: GPIO22
+      inverted: false
+
+  - platform: gpio
+    id: onboard_led
+    pin:
+      number: GPIO15
+      inverted: true
+
+light:
+  - platform: binary
+    name: "On-Board LED"
+    output: onboard_led
+    
+select:
+  - platform: template
+    name: "Eingang"
+    id: select_entry
+    icon: "mdi:home-import-outline"
+    entity_category: CONFIG
+    optimistic: true
+    restore_value: true
+    options:
+      - "Auto"
+      - "Offen"
+      - "Geschlossen"
+    initial_option: "Auto"
+    on_value:
+      lambda: |-
+        if (x == "Auto") {
+          ESP_LOGI("Select", "Entry: Option 'Auto' selected");
+          id(entry_close).execute();
+        } else if (x == "Offen") {
+          ESP_LOGI("Select", "Entry: Option 'Offen' selected");
+          id(entry_open).execute();
+        } else if (x == "Geschlossen") {
+          ESP_LOGI("Select", "Entry: Option 'Geschlossen' selected");
+          id(entry_close).execute();
+        }
+
+  - platform: template
+    name: "Ausgang"
+    id: select_exit
+    icon: "mdi:home-export-outline"
+    entity_category: CONFIG
+    optimistic: true
+    restore_value: true
+    options:
+      - "Offen"
+      - "Geschlossen"
+    initial_option: "Offen"
+    on_value:
+      lambda: |-
+        if (x == "Offen") {
+          ESP_LOGI("Select", "Exit: Option 'Offen' selected");
+          id(exit_open).execute();
+        } else if (x == "Geschlossen") {
+          ESP_LOGI("Select", "Exit: Option 'Geschlossen' selected");
+          id(exit_close).execute();
+        }
+
+event:
+  - platform: template
+    id: event_scan
+    name: "Scan Cat"
+    event_types:
+      - "Scan"
+
+script:
+  - id: exit_open
+    then:
+      - output.turn_on: output1
+      - delay: 0.1s
+      - output.turn_off: output1
+
+  - id: exit_close
+    then:
+      - output.turn_on: output2
+      - delay: 0.1s
+      - output.turn_off: output2
+
+  - id: entry_open
+    then:
+      - output.turn_on: output3
+      - delay: 0.1s
+      - output.turn_off: output3
+
+  - id: entry_close
+    then:
+      - output.turn_on: output4
+      - delay: 0.1s
+      - output.turn_off: output4
+
+  - id: entry_open_and_close
+    mode: restart
+    then:
+      - logger.log:
+          format: 'Opening entry for %.0f seconds'
+          args: id(opening_time).state
+          level: INFO
+      - script.execute: entry_open
+      - delay: !lambda "return (int(id(opening_time).state * 1000));"
+      - logger.log:
+          format: 'Time is up, closing entry'
+          level: INFO
+      - script.execute: entry_close
+
+  - id: handle_cat_scan
+    mode: queued
+    then:
+      - lambda: |-
+          std::string chip = id(transponder_code).state;
+
+          std::string cat_name = "Unbekannt";
+          bool allowed = false;
+
+          cJSON *root = cJSON_Parse(id(cat_db).c_str());
+          if (root) {
+            cJSON *cat = cJSON_GetObjectItem(root, chip.c_str());
+            if (cat) {
+              cJSON *name_item = cJSON_GetObjectItem(cat, "name");
+              cJSON *allowed_item = cJSON_GetObjectItem(cat, "allowed");
+
+              if (name_item && name_item->valuestring) {
+                cat_name = name_item->valuestring;
+              }
+              if (allowed_item) {
+                allowed = cJSON_IsTrue(allowed_item);
+              }
+            }
+            cJSON_Delete(root);
+          }
+
+          // Publish name
+          id(last_cat_name).publish_state(cat_name);
+
+          // Time
+          auto now = id(ha_time).now();
+          if (!now.is_valid()) {
+            id(last_entry_time).publish_state("??:??:??");
+          } else {
+            char buffer[9];
+            snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d",
+                     now.hour, now.minute, now.second);
+            id(last_entry_time).publish_state(buffer);
+          }
+
+          // Trigger event
+          id(event_scan).trigger("Scan");
+
+          // Entry logic
+          if (allowed) {
+            if (id(select_entry).current_option() == "Auto") {
+              id(entry_open_and_close).execute();
+            }
+          }
+          
+# =========================
+# API SERVICES
+# =========================
+api:
+  encryption:
+    key: ${api_key}
+
+  services:
+
+    # -------------------------
+    # + Add cat
+    # -------------------------
+    - service: add_cat
+      variables:
+        chip: string
+        name: string
+        allowed: bool
+      then:
+        - lambda: |-
+            if (chip.empty() || name.empty()) {
+              ESP_LOGE("cat_db", "Chip or name empty");
+              return;
+            }
+
+            cJSON *root = cJSON_Parse(id(cat_db).c_str());
+            if (!root) {
+              ESP_LOGE("cat_db", "JSON parse failed");
+              return;
+            }
+
+            // Check duplicate chip
+            if (cJSON_GetObjectItem(root, chip.c_str())) {
+              ESP_LOGE("cat_db", "Chip already exists");
+              cJSON_Delete(root);
+              return;
+            }
+
+            // Check duplicate name
+            cJSON *entry = NULL;
+            cJSON_ArrayForEach(entry, root) {
+              cJSON *name_item = cJSON_GetObjectItem(entry, "name");
+              if (name_item && 
+                  name_item->valuestring && 
+                  std::string(name_item->valuestring) == name) {
+                ESP_LOGE("cat_db", "Name already exists");
+                cJSON_Delete(root);
+                return;
+              }
+            }
+
+            cJSON *new_cat = cJSON_CreateObject();
+            cJSON_AddStringToObject(new_cat, "name", name.c_str());
+            cJSON_AddBoolToObject(new_cat, "allowed", allowed);
+
+            cJSON_AddItemToObject(root, chip.c_str(), new_cat);
+
+            char *out = cJSON_PrintUnformatted(root);
+            id(cat_db) = std::string(out);
+
+            id(cat_db_view).publish_state(id(cat_db));
+            
+            free(out);
+            cJSON_Delete(root);
+
+            ESP_LOGI("cat_db", "Cat added");
+
+
+    # -------------------------
+    # - Remove cat (by name)
+    # -------------------------
+    - service: remove_cat
+      variables:
+        name: string
+      then:
+        - lambda: |-
+            if (name.empty()) {
+              ESP_LOGE("cat_db", "Name empty");
+              return;
+            }
+
+            cJSON *root = cJSON_Parse(id(cat_db).c_str());
+            if (!root) {
+              ESP_LOGE("cat_db", "JSON parse failed");
+              return;
+            }
+
+            std::string chip_to_remove = "";
+            cJSON *entry = NULL;
+
+            cJSON_ArrayForEach(entry, root) {
+              cJSON *name_item = cJSON_GetObjectItem(entry, "name");
+              if (name_item && 
+                  name_item->valuestring && 
+                  std::string(name_item->valuestring) == name) {
+                chip_to_remove = entry->string;
+                break;
+              }
+            }
+
+            if (chip_to_remove.empty()) {
+              ESP_LOGE("cat_db", "Name not found");
+              cJSON_Delete(root);
+              return;
+            }
+
+            cJSON_DeleteItemFromObject(root, chip_to_remove.c_str());
+
+            char *out = cJSON_PrintUnformatted(root);
+            id(cat_db) = std::string(out);
+
+            id(cat_db_view).publish_state(id(cat_db));
+            
+            free(out);
+            cJSON_Delete(root);
+
+            ESP_LOGI("cat_db", "Cat removed");
+
+
+    # -------------------------
+    # [x] Set allowed = true
+    # -------------------------
+    - service: set_allowed_true
+      variables:
+        name: string
+      then:
+        - lambda: |-
+            cJSON *root = cJSON_Parse(id(cat_db).c_str());
+            if (!root) {
+              ESP_LOGE("cat_db", "JSON parse failed");
+              return;
+            }
+
+            bool found = false;
+            cJSON *entry = NULL;
+
+            cJSON_ArrayForEach(entry, root) {
+              cJSON *name_item = cJSON_GetObjectItem(entry, "name");
+              if (name_item && 
+                  name_item->valuestring && 
+                  std::string(name_item->valuestring) == name) {
+                cJSON_ReplaceItemInObject(entry, "allowed", cJSON_CreateBool(true));
+                found = true;
+                break;
+              }
+            }
+
+            if (!found) {
+              ESP_LOGE("cat_db", "Name not found");
+              cJSON_Delete(root);
+              return;
+            }
+
+            char *out = cJSON_PrintUnformatted(root);
+            id(cat_db) = std::string(out);
+            
+            id(cat_db_view).publish_state(id(cat_db));
+
+            free(out);
+            cJSON_Delete(root);
+
+            ESP_LOGI("cat_db", "Allowed set TRUE");
+
+
+    # -------------------------
+    # [] Set allowed = false
+    # -------------------------
+    - service: set_allowed_false
+      variables:
+        name: string
+      then:
+        - lambda: |-
+            cJSON *root = cJSON_Parse(id(cat_db).c_str());
+            if (!root) {
+              ESP_LOGE("cat_db", "JSON parse failed");
+              return;
+            }
+
+            bool found = false;
+            cJSON *entry = NULL;
+
+            cJSON_ArrayForEach(entry, root) {
+              cJSON *name_item = cJSON_GetObjectItem(entry, "name");
+              if (name_item && 
+                  name_item->valuestring && 
+                  std::string(name_item->valuestring) == name) {
+                cJSON_ReplaceItemInObject(entry, "allowed", cJSON_CreateBool(false));
+                found = true;
+                break;
+              }
+            }
+
+            if (!found) {
+              ESP_LOGE("cat_db", "Name not found");
+              cJSON_Delete(root);
+              return;
+            }
+
+            char *out = cJSON_PrintUnformatted(root);
+            id(cat_db) = std::string(out);
+            
+            id(cat_db_view).publish_state(id(cat_db));
+
+            free(out);
+            cJSON_Delete(root);
+
+            ESP_LOGI("cat_db", "Allowed set FALSE");

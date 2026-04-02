@@ -1,0 +1,16 @@
+substitutions:
+  device_name: meowpass
+  friendly_name: MeowPass
+  api_key: "xxxxx"
+  ota_password: "xxxxx"
+  fallback_ap_ssid: "meowpass Fallback Hotspot"
+  fallback_ap_password: "xxxxx"
+
+packages:
+  common: !include meowpass_common.yaml
+
+wifi:
+  manual_ip:
+    static_ip: 192.168.1.xxx
+    gateway: 192.168.1.1
+    subnet: 255.255.255.0
