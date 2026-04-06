@@ -68,7 +68,7 @@ The WL-134 needs an antenna with an inductance of around 500 uH to 600 uH. Even 
 * Unplug the cables from the existing PCB, and remove the PCB including the photo diode
 * Install the MeowPass PCB, and connect the 6-pin connector for the solenoids
 * Install the cat flap as usual
-* The existing cover has a battery cover and doesn't fit over the larger PCB. For that reason you need to print a simplified cover, see [Printables](link) or [Makerworld](link)
+* The existing cover has a battery cover and doesn't fit over the larger PCB. For that reason you need to print a simplified cover, see [Printables](https://www.printables.com/model/1673473-petsafe-petporte-cover) or [Makerworld](https://makerworld.com/en/models/2626705-petsafe-petporte-cover)
 
 ![Installed PCB](images/installed_pcb.JPEG)
 
