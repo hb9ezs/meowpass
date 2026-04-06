@@ -3,7 +3,7 @@
 
 MeowPass is an open-source hardware and software replacement for the PetSafe PetPorte cat flap. By swapping the original PCB for a custom ESP32-C6 board running ESPHome, you gain full control via Home Assistant, easier cat management, and better reliability.
 
-<!-- TODO Photo of the complete cat flap -->
+![MeowPass](images/meowpass.png)
 
 ## Introduction
 In the original Petporte cats can only be added by scanning them within 30 seconds of pressing a button. With a shy cat this can be difficult. 
@@ -57,19 +57,20 @@ This gives enough space to use wide power traces, and the ground planes don't ne
 
 A high quality 12V DC power supply is really important. I tested a cheaper power supply, and even with all the filtering this reduces the reading distance by a lot. For that reason i used a **MeanWell GST36E12-P1J**.
 
-In total I paid around 6$ per PCB, 14$ for the power supply and 32$ for all the other components, which gives a total of 52$ for the complete print. Additionally, the PetSafe Petporte costs around 120$ to 180$.
+In total, I paid around 6$ per PCB, 14$ for the power supply and 32$ for all the other components, which gives a total of 52$ for the complete print. Additionally, the PetSafe Petporte costs around 120$ to 180$.
 
 ## Assembly instructions
 The WL-134 needs an antenna with an inductance of around 500 uH to 600 uH. Even with the additional tuning capacitors the inductance of the existing antenna is too far off and doesn't work well with the WL-134. Fortunately, the WL-134 comes with its own antenna which has a matching inductance. You only need to solder a bit of cable with a KF2510 female connector to the antenna and install it in the existing antenna cover.
 
-<!-- TODO Photo of installed antenna -->
+![Installed Antenna](images/installed_antenna.JPEG)
 
 * Replace the existing RFID antenna with the 134 kHz that comes with the WL-134
 * Unplug the cables from the existing PCB, and remove the PCB including the photo diode
 * Install the MeowPass PCB, and connect the 6-pin connector for the solenoids
 * Install the cat flap as usual
 * The existing cover has a battery cover and doesn't fit over the larger PCB. For that reason you need to print a simplified cover, see [Printables](link) or [Makerworld](link)
-<!-- TODO Photo of installed print -->
+
+![Installed PCB](images/installed_pcb.JPEG)
 
 ## ESPHome Firmware
 The ESPHome firmware needs the following files:
