@@ -94,6 +94,61 @@ Some additional features:
 
 After a known chip is read, and this cat is set to allowed=true, the cat flap will open for the time defined in *opening_time*.
 
+## Home Assistant Dashboard
+![Home Assistant Dashboard](images/dashboard.png)
+The main parts on the Home Assistant dashboard are a [Logbook card](https://github.com/royto/logbook-card) card that shows the most recent scans, and a Markdown table showing the registered cats.
+
+The remaining cards to set the exit/entry mode or opening time are simple Tile cards.
+
+### Logbook
+The [Logbook card](https://github.com/royto/logbook-card) can be installed via HACS.
+
+To use the logbook I have created an *Input text* helper called `input_text.meowpass_1_logbook` and an automation that will update this helper with the name + time whenever a cat is scanned.
+```yaml
+type: custom:logbook-card
+entity: input_text.meowpass_1_logbook
+hours_to_show: 24
+show:
+  state: true
+  duration: false
+  start_date: false
+  end_date: false
+  icon: true
+  separator: false
+  entity_name: true
+custom_logs: false
+title: MeowPass 1
+desc: true
+collapse: 5
+state_map:
+  - icon: mdi:rocket-launch
+    icon_color: var(--accent-color)
+    value: Regi *
+  - icon: mdi:bomb
+    icon_color: var(--primary-color)
+    value: Ronja *
+grid_options:
+  rows: auto
+  columns: 12
+```
+
+### Table
+The table can be created with a Markdown card and some templating:
+```yaml
+type: markdown
+content: >-
+  {% set entries = states('sensor.meowpass_1_cat_database_readonly') | from_json %}
+
+  | ID | Name | Status |
+
+  | :--- | :--- | :--- |
+
+  {% for id, info in entries.items() %}| {{ id }} | {{ info.name }} | {{ '✅
+  Allowed' if info.allowed else '❌ Blocked' }} |
+
+  {% endfor %}
+```
+
 ## Possible improvements
 * Without WiFi connection and a running Home Assistant the MeowPass still works, but cannot be controlled. This means if the WiFi connection drops, the cat flap can't be opened or closed.
 In a future version I might consider using the existing buttons and LED or add some other control options.
