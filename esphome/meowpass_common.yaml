@@ -42,6 +42,10 @@ captive_portal:
 # ==============================================================================
 # ============================= START OF MAIN PART =============================
 # ==============================================================================
+button:
+  - platform: restart
+    name: "Restart"
+
 sensor:
   # WiFi Signal Strength (RSSI) in dBm
   - platform: wifi_signal
@@ -94,6 +98,7 @@ globals:
   - id: cat_db
     type: std::string
     restore_value: true
+    max_restore_data_length: 254
     initial_value: '"{}"'
     
 time:

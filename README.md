@@ -85,6 +85,8 @@ The firmware is built, so that the number of cats can change dynamically and can
 * `set_allowed_true` with variable *name*
 * `set_allowed_false` with variable *name*
 
+> The cat_db has a `max_restore_data_length` of 254 bytes, which means that only the first 4 cats will be restored after a reboot. To store more than 4 cats some changes to the firmware need to be made.
+
 You can set *allowed* to true or false, so that you can prevent entry for one cat without deleting the entry. All four of those actions have some error handling, so that the ESP32 shouldn't crash if the entry of an action is wrong.
 
 Some additional features:
