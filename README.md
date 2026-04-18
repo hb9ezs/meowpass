@@ -96,6 +96,30 @@ Some additional features:
 
 After a known chip is read, and this cat is set to allowed=true, the cat flap will open for the time defined in *opening_time*.
 
+### WiFi connectivity
+Where I wanted to install the MeowPass, the ESP32 had some WiFi connectivity issues.
+To fix that, I connected an external WiFi antenna to the U.FL connector of the ESP32.
+
+According to the [documentation for the XIAO ESP32C6](https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/), `GPIO3` needs to be set to low to activate RF switch control, then `GPIO14` needs to be set to high to enable the external antenna.
+To do so, add this code snippet to the ESPHome configuration:
+```
+switch:
+  # Activate RF switch control
+  - platform: gpio
+    pin: GPIO3
+    id: rf_switch_power
+    internal: true
+    restore_mode: ALWAYS_OFF
+
+  # Use external antenna
+  - platform: gpio
+    pin: GPIO14
+    id: antenna_selector
+    internal: true
+    restore_mode: ALWAYS_ON
+```
+For me, this increased the WiFi signal by around 15-20 dBm and solved all my issues.
+
 ## Home Assistant Dashboard
 ![Home Assistant Dashboard](images/dashboard.png)
 The main parts on the Home Assistant dashboard are a [Logbook card](https://github.com/royto/logbook-card) card that shows the most recent scans, and a Markdown table showing the registered cats.
